@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ type Chat = {
   time: string;
   unread: number;
   online: boolean;
+  messages: Message[];
 };
 
 type Contact = {
@@ -38,20 +39,63 @@ type Story = {
   viewed: boolean;
 };
 
-const mockChats: Chat[] = [
-  { id: 1, name: 'Анна Иванова', avatar: '👩', lastMessage: 'Привет! Как дела?', time: '12:45', unread: 3, online: true },
-  { id: 2, name: 'Команда GG', avatar: '👥', lastMessage: 'Встреча в 15:00', time: '11:20', unread: 0, online: false },
-  { id: 3, name: 'Дмитрий', avatar: '👨', lastMessage: 'Отправил файлы', time: 'Вчера', unread: 1, online: true },
-  { id: 4, name: 'Мама', avatar: '👩‍🦰', lastMessage: 'Не забудь позвонить', time: 'Вчера', unread: 0, online: false },
+const initialChats: Chat[] = [
+  { 
+    id: 1, 
+    name: 'Анна Иванова', 
+    avatar: '👩', 
+    lastMessage: 'Привет! Как дела?', 
+    time: '12:45', 
+    unread: 3, 
+    online: true,
+    messages: [
+      { id: 1, text: 'Привет! Как дела?', sender: 'other', time: '12:40' },
+      { id: 2, text: 'Отлично! А у тебя?', sender: 'me', time: '12:42' },
+      { id: 3, text: 'Тоже хорошо! Хотела спросить про встречу', sender: 'other', time: '12:43' },
+      { id: 4, text: 'Да, конечно! Во сколько удобно?', sender: 'me', time: '12:44' },
+      { id: 5, text: 'В 15:00 подойдет?', sender: 'other', time: '12:45' },
+    ]
+  },
+  { 
+    id: 2, 
+    name: 'Команда GG', 
+    avatar: '👥', 
+    lastMessage: 'Встреча в 15:00', 
+    time: '11:20', 
+    unread: 0, 
+    online: false,
+    messages: [
+      { id: 1, text: 'Всем привет!', sender: 'other', time: '11:15' },
+      { id: 2, text: 'Встреча в 15:00', sender: 'other', time: '11:20' },
+    ]
+  },
+  { 
+    id: 3, 
+    name: 'Дмитрий', 
+    avatar: '👨', 
+    lastMessage: 'Отправил файлы', 
+    time: 'Вчера', 
+    unread: 1, 
+    online: true,
+    messages: [
+      { id: 1, text: 'Отправил файлы', sender: 'other', time: 'Вчера' },
+    ]
+  },
+  { 
+    id: 4, 
+    name: 'Мама', 
+    avatar: '👩‍🦰', 
+    lastMessage: 'Не забудь позвонить', 
+    time: 'Вчера', 
+    unread: 0, 
+    online: false,
+    messages: [
+      { id: 1, text: 'Не забудь позвонить', sender: 'other', time: 'Вчера' },
+    ]
+  },
 ];
 
-const mockMessages: Message[] = [
-  { id: 1, text: 'Привет! Как дела?', sender: 'other', time: '12:40' },
-  { id: 2, text: 'Отлично! А у тебя?', sender: 'me', time: '12:42' },
-  { id: 3, text: 'Тоже хорошо! Хотела спросить про встречу', sender: 'other', time: '12:43' },
-  { id: 4, text: 'Да, конечно! Во сколько удобно?', sender: 'me', time: '12:44' },
-  { id: 5, text: 'В 15:00 подойдет?', sender: 'other', time: '12:45' },
-];
+
 
 const mockContacts: Contact[] = [
   { id: 1, name: 'Анна Иванова', avatar: '👩', status: 'В сети', online: true },
@@ -69,11 +113,50 @@ const mockStories: Story[] = [
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'chats' | 'contacts' | 'stories' | 'profile' | 'settings'>('chats');
-  const [selectedChat, setSelectedChat] = useState<Chat | null>(mockChats[0]);
+  const [chats, setChats] = useState<Chat[]>(initialChats);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(initialChats[0]);
   const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [selectedChat?.messages]);
+
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  };
 
   const handleSendMessage = () => {
-    if (newMessage.trim()) {
+    if (newMessage.trim() && selectedChat) {
+      const newMsg: Message = {
+        id: selectedChat.messages.length + 1,
+        text: newMessage.trim(),
+        sender: 'me',
+        time: getCurrentTime()
+      };
+
+      const updatedChats = chats.map(chat => {
+        if (chat.id === selectedChat.id) {
+          return {
+            ...chat,
+            messages: [...chat.messages, newMsg],
+            lastMessage: newMsg.text,
+            time: newMsg.time
+          };
+        }
+        return chat;
+      });
+
+      setChats(updatedChats);
+      const updatedSelectedChat = updatedChats.find(c => c.id === selectedChat.id);
+      if (updatedSelectedChat) {
+        setSelectedChat(updatedSelectedChat);
+      }
       setNewMessage('');
     }
   };
@@ -149,7 +232,7 @@ const Index = () => {
 
             <ScrollArea className="flex-1">
               <div className="p-3">
-                {mockChats.map((chat) => (
+                {chats.map((chat) => (
                   <button
                     key={chat.id}
                     onClick={() => setSelectedChat(chat)}
@@ -213,7 +296,7 @@ const Index = () => {
 
                 <ScrollArea className="flex-1 p-6">
                   <div className="space-y-4">
-                    {mockMessages.map((message, index) => (
+                    {selectedChat.messages.map((message, index) => (
                       <div
                         key={message.id}
                         className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'} animate-slide-in-right`}
@@ -233,6 +316,7 @@ const Index = () => {
                         </div>
                       </div>
                     ))}
+                    <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
 
