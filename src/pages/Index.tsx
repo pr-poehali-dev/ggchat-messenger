@@ -116,6 +116,14 @@ const Index = () => {
   const [chats, setChats] = useState<Chat[]>(initialChats);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(initialChats[0]);
   const [newMessage, setNewMessage] = useState('');
+  const [stories, setStories] = useState<Story[]>(mockStories);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    username: '@myusername',
+    status: 'В сети',
+    bio: 'Люблю общаться в GGchat! 🚀'
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -129,6 +137,15 @@ const Index = () => {
   const getCurrentTime = () => {
     const now = new Date();
     return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  };
+
+  const handleChatSelect = (chat: Chat) => {
+    const updatedChats = chats.map(c => 
+      c.id === chat.id ? { ...c, unread: 0 } : c
+    );
+    setChats(updatedChats);
+    const updatedChat = updatedChats.find(c => c.id === chat.id);
+    setSelectedChat(updatedChat || null);
   };
 
   const handleSendMessage = () => {
@@ -146,7 +163,8 @@ const Index = () => {
             ...chat,
             messages: [...chat.messages, newMsg],
             lastMessage: newMsg.text,
-            time: newMsg.time
+            time: newMsg.time,
+            unread: 0
           };
         }
         return chat;
@@ -159,6 +177,22 @@ const Index = () => {
       }
       setNewMessage('');
     }
+  };
+
+  const handleStoryClick = (story: Story) => {
+    setSelectedStory(story);
+    const updatedStories = stories.map(s => 
+      s.id === story.id ? { ...s, viewed: true } : s
+    );
+    setStories(updatedStories);
+  };
+
+  const handleCloseStory = () => {
+    setSelectedStory(null);
+  };
+
+  const handleSaveProfile = () => {
+    setIsEditingProfile(false);
   };
 
   return (
@@ -235,7 +269,7 @@ const Index = () => {
                 {chats.map((chat) => (
                   <button
                     key={chat.id}
-                    onClick={() => setSelectedChat(chat)}
+                    onClick={() => handleChatSelect(chat)}
                     className={`w-full p-4 rounded-2xl mb-2 transition-all hover:bg-muted flex items-center gap-3 ${
                       selectedChat?.id === chat.id ? 'bg-muted' : ''
                     }`}
@@ -407,10 +441,11 @@ const Index = () => {
           </div>
           <ScrollArea className="flex-1 p-6">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {mockStories.map((story) => (
+              {stories.map((story) => (
                 <div
                   key={story.id}
                   className="cursor-pointer group animate-scale-in hover:scale-105 transition-all"
+                  onClick={() => handleStoryClick(story)}
                 >
                   <div
                     className={`relative mb-2 rounded-3xl p-1 ${
@@ -427,6 +462,29 @@ const Index = () => {
                 </div>
               ))}
             </div>
+            {selectedStory && (
+              <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center animate-fade-in" onClick={handleCloseStory}>
+                <div className="relative max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute -top-12 right-0 text-white hover:bg-white/20 rounded-full"
+                    onClick={handleCloseStory}
+                  >
+                    <Icon name="X" size={24} />
+                  </Button>
+                  <div className="bg-gradient-to-br from-primary via-secondary to-accent p-1 rounded-3xl">
+                    <div className="bg-background rounded-3xl p-8 text-center">
+                      <Avatar className="w-32 h-32 mx-auto mb-4">
+                        <AvatarFallback className="text-6xl">{selectedStory.avatar}</AvatarFallback>
+                      </Avatar>
+                      <h3 className="text-2xl font-bold mb-2">{selectedStory.name}</h3>
+                      <p className="text-muted-foreground">Статус пользователя</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </ScrollArea>
         </div>
       )}
@@ -442,21 +500,70 @@ const Index = () => {
               <p className="text-muted-foreground">user@ggchat.com</p>
             </div>
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-muted">
-                <p className="text-sm text-muted-foreground mb-1">Имя пользователя</p>
-                <p className="font-semibold">@myusername</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-muted">
-                <p className="text-sm text-muted-foreground mb-1">Статус</p>
-                <p className="font-semibold">В сети</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-muted">
-                <p className="text-sm text-muted-foreground mb-1">О себе</p>
-                <p className="font-semibold">Люблю общаться в GGchat! 🚀</p>
-              </div>
-              <Button className="w-full rounded-2xl bg-gradient-to-r from-primary to-secondary">
-                Редактировать профиль
-              </Button>
+              {isEditingProfile ? (
+                <>
+                  <div className="p-4 rounded-2xl bg-muted">
+                    <p className="text-sm text-muted-foreground mb-2">Имя пользователя</p>
+                    <Input 
+                      value={profileData.username} 
+                      onChange={(e) => setProfileData({...profileData, username: e.target.value})}
+                      className="bg-background border-border rounded-xl"
+                    />
+                  </div>
+                  <div className="p-4 rounded-2xl bg-muted">
+                    <p className="text-sm text-muted-foreground mb-2">Статус</p>
+                    <Input 
+                      value={profileData.status} 
+                      onChange={(e) => setProfileData({...profileData, status: e.target.value})}
+                      className="bg-background border-border rounded-xl"
+                    />
+                  </div>
+                  <div className="p-4 rounded-2xl bg-muted">
+                    <p className="text-sm text-muted-foreground mb-2">О себе</p>
+                    <Input 
+                      value={profileData.bio} 
+                      onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
+                      className="bg-background border-border rounded-xl"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      className="flex-1 rounded-2xl bg-gradient-to-r from-primary to-secondary"
+                      onClick={handleSaveProfile}
+                    >
+                      Сохранить
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 rounded-2xl"
+                      onClick={() => setIsEditingProfile(false)}
+                    >
+                      Отмена
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-4 rounded-2xl bg-muted">
+                    <p className="text-sm text-muted-foreground mb-1">Имя пользователя</p>
+                    <p className="font-semibold">{profileData.username}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-muted">
+                    <p className="text-sm text-muted-foreground mb-1">Статус</p>
+                    <p className="font-semibold">{profileData.status}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-muted">
+                    <p className="text-sm text-muted-foreground mb-1">О себе</p>
+                    <p className="font-semibold">{profileData.bio}</p>
+                  </div>
+                  <Button 
+                    className="w-full rounded-2xl bg-gradient-to-r from-primary to-secondary"
+                    onClick={() => setIsEditingProfile(true)}
+                  >
+                    Редактировать профиль
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
